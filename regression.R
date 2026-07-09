@@ -88,6 +88,7 @@ mapped_nace_with_turnover_match <- ets_activity_nace_level3_mapping %>%
 
 print(n = 100, mapped_nace_with_turnover_match)
 
+# add ets_activity_codes to nace labels
 ets_net_cost_by_year_coun_acti_labeled <- read_excel(
   "data/ets_net_cost_by_year_coun_acti_labeled.xlsx"
 ) %>%
@@ -102,7 +103,9 @@ ets_net_cost_by_year_coun_acti_labeled <- read_excel(
     !is.na(ets_net_cost_eur)
   )
 
-turnover_ets_net_cost_regression_data <- turnover_2013_2024 %>%
+# create final regression data
+# 1. join turnover with ets_net_cost
+regression_data <- turnover_2013_2024 %>%
   left_join(
     ets_net_cost_by_year_coun_acti_labeled,
     by = c("country_code", "year", "nace_join_key")
@@ -126,36 +129,43 @@ turnover_ets_net_cost_regression_data <- turnover_2013_2024 %>%
     ets_net_cost_eur_mio
   )
 
+# 2. join with interest rate
+# interest_rate_3m_yearly <- read_excel("data/interest_rate_3m_yearly.xlsx")
+
+# regression_data <- regression_data %>%
+#   left_join(interest_rate_3m_yearly, by = "year")
+
+# 3. add fixed effects
 # factor terms are flags of 0 or 1 where only a single value per variable and observation is 1 
 # factor terms are controlling for the average turnover of an independent variable's value across all other independent variables, e. g. factor(2020) calculates an average across all sectors and countries on this year. Effect of net_ets_cost is then calculated as the deviations from the average fixed effects
-turnover_ets_net_cost_model <- lm(
+regression_model <- lm(
   log(turnover_eur_mio) ~ ets_net_cost_eur_mio +
+    # interest_rate_3m +
     factor(country_code) +
     factor(year) +
     factor(nace_category_name),
-  data = turnover_ets_net_cost_regression_data
+  data = regression_data
 )
 
-# summary(turnover_ets_net_cost_model)
-
-turnover_ets_net_cost_coefficients <- coef(
-  summary(turnover_ets_net_cost_model)
+# summary(regression_model)
+coefficients <- coef(
+  summary(regression_model)
 ) %>%
   as.data.frame() %>%
   tibble::rownames_to_column("term")
 
-turnover_ets_net_cost_model_stats <- tibble::tibble(
-  n_observations = nobs(turnover_ets_net_cost_model),
-  r_squared = summary(turnover_ets_net_cost_model)$r.squared,
-  adjusted_r_squared = summary(turnover_ets_net_cost_model)$adj.r.squared,
-  residual_standard_error = summary(turnover_ets_net_cost_model)$sigma
+model_stats <- tibble::tibble(
+  n_observations = nobs(regression_model),
+  r_squared = summary(regression_model)$r.squared,
+  adjusted_r_squared = summary(regression_model)$adj.r.squared,
+  residual_standard_error = summary(regression_model)$sigma
 )
 
 writexl::write_xlsx(
   list(
-    regression_data = turnover_ets_net_cost_regression_data,
-    coefficients = turnover_ets_net_cost_coefficients,
-    model_stats = turnover_ets_net_cost_model_stats
+    regression_data = regression_data,
+    coefficients = coefficients,
+    model_stats = model_stats
   ),
-  "data/regression turnover ETS net cost.xlsx"
+  "data/regression_results.xlsx"
 )
