@@ -332,6 +332,21 @@ writexl::write_xlsx(
   "data/ets_net_cost_by_year_coun_acti_labeled.xlsx"
 )
 
+# join with ETS-NACE mapping to get combined activity labels, then sum net cost per group
+mapping_ets_combined <- readxl::read_excel("data/raw/mapping ets nace/mapping_ets_activity_nace_all_levels.xlsx") %>%
+  distinct(ets_activity_code, ets_activity_code_combined, ets_activity_name_combined)
+
+ets_net_cost_labeled_combined <- ets_net_cost_by_year_coun_acti_labeled %>%
+  mutate(ets_activity_code = as.character(ets_activity_code)) %>%
+  inner_join(mapping_ets_combined, by = "ets_activity_code") %>%
+  group_by(country_code, year, ets_activity_code_combined, ets_activity_name_combined) %>%
+  summarise(ets_net_cost_eur = sum(ets_net_cost_eur, na.rm = TRUE), .groups = "drop")
+
+writexl::write_xlsx(
+  ets_net_cost_labeled_combined,
+  "data/ets_net_cost_labeled_combined.xlsx"
+)
+
 # reduce four dimensions to three by aggregating over all countries for plotting
 ets_net_cost_by_year_acti <- ets_net_cost_by_year_coun_acti_labeled %>%
   group_by(year, ets_activity_code, ets_activity_name) %>%

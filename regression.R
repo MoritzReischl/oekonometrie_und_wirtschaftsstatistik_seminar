@@ -22,6 +22,7 @@ normalize_nace_label <- function(x) {
     str_to_lower()
 }
 
+# use level 3 mapping only
 ets_activity_nace_level3_mapping <- read_excel(
   "data/raw/mapping_ets_activity_nace_level3.xlsx",
   sheet = "Mapping"
@@ -169,3 +170,5 @@ writexl::write_xlsx(
   ),
   "data/regression_results.xlsx"
 )
+
+# MISSING: use the combined ets_activities and nace_categories for regression (with an 1:1 mapping)

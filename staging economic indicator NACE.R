@@ -45,7 +45,7 @@ country_codes <- tibble::tribble(
   "Serbia", "RS"
 )
 
-process_eurostat_data <- function(file_path, nace_category_cell, header_row, economic_indicator, target_name) {
+process_eurostat_multisheet_data <- function(file_path, nace_category_cell, header_row, economic_indicator, target_name) {
   # returns the titles of all sheets in the workbook, exclusive the summary sheet
   data_sheets <- excel_sheets(file_path) %>%
     setdiff("Summary")
@@ -119,7 +119,7 @@ process_eurostat_data <- function(file_path, nace_category_cell, header_row, eco
   economic_indicator_nace
 }
 
-turnover_2021_2024 = process_eurostat_data(
+turnover_2021_2024_l3 = process_eurostat_multisheet_data(
   file_path = "data/raw/turnover/turnover by NACE Rev. 2 level 3 activities 2021-2024.xlsx",
   nace_category_cell = "C7",
   header_row = 10,
@@ -127,7 +127,7 @@ turnover_2021_2024 = process_eurostat_data(
   target_name = "raw/turnover_by_nace_2.0_level_3_coun_year_2021_24"
 )
 
-turnover_2013_2020 = process_eurostat_data(
+turnover_2013_2020_l3 = process_eurostat_multisheet_data(
   file_path = "data/raw/turnover/turnover by NACE Rev. 2 level 3 activities 2013-2020.xlsx",
   nace_category_cell = "C6",
   header_row = 10,
@@ -136,9 +136,88 @@ turnover_2013_2020 = process_eurostat_data(
 )
 
 # union both tables into a single table
-turnover_2013_2024 <- bind_rows(turnover_2021_2024, turnover_2013_2020)
+turnover_2013_2024_l3 <- bind_rows(turnover_2021_2024_l3, turnover_2013_2020_l3)
+
+# for replication purpose: store both l3 only and l2+l3
+writexl::write_xlsx(
+  turnover_2013_2024_l3,
+  "data/turnover_2013_24_l3.xlsx"
+)
+
+# reads a single-sheet Eurostat workbook where the first two columns are country
+# and NACE category, followed by alternating value/flag column pairs per year
+process_eurostat_singletable_data <- function(file_path, header_row, economic_indicator, target_name) {
+  raw_data <- read_excel(
+    file_path,
+    sheet = "Data",
+    skip = header_row - 1,
+    na = c(":", ""),
+    col_names = TRUE,
+    col_types = "text",
+    .name_repair = "unique"
+  )
+
+  economic_indicator_nace <- raw_data %>%
+    # first column = country name, second = NACE category label
+    rename(country = 1, nace_category_name = 2) %>%
+    filter(!is.na(country), country != "GEO (Labels)") %>%
+    inner_join(country_codes, by = "country") %>%
+    # keep only the value columns (^\\d{4}); flag columns get auto-names like ...4, ...6
+    select(country_code, nace_category_name, matches("^\\d{4}")) %>%
+    pivot_longer(
+      cols = matches("^\\d{4}"),
+      names_to = "year",
+      values_to = economic_indicator
+    ) %>%
+    mutate(
+      year = as.integer(str_extract(year, "\\d{4}")),
+      across(all_of(economic_indicator), ~ as.numeric(str_replace_all(.x, ",", "")))
+    ) %>%
+    select(country_code, year, nace_category_name, all_of(economic_indicator))
+
+  writexl::write_xlsx(
+    economic_indicator_nace,
+    paste0("data/", target_name, ".xlsx")
+  )
+
+  economic_indicator_nace
+}
+
+turnover_2021_2024_l2 <- process_eurostat_singletable_data(
+  file_path = "data/raw/turnover/turnover by NACE Rev. 2 level 2 activities 2021-2024.xlsx",
+  header_row = 9,
+  economic_indicator = "turnover_million_eur",
+  target_name = "raw/turnover_by_nace_2.0_level_2_coun_year_2021_24"
+)
+
+turnover_2013_2020_l2 <- process_eurostat_singletable_data(
+  file_path = "data/raw/turnover/turnover by NACE Rev. 2 level 2 activities 2013-2020.xlsx",
+  header_row = 8,
+  economic_indicator = "turnover_million_eur",
+  target_name = "raw/turnover_by_nace_2.0_level_2_coun_year_2013_20"
+)
+
+# union both tables into a single table
+turnover_2013_2024_l2 <- bind_rows(turnover_2021_2024_l2, turnover_2013_2020_l2)
+
+
+# combine level 2 and level 3 into a single table, adding a nace_level column
+turnover_2013_2024 <- bind_rows(
+  mutate(turnover_2013_2024_l2, nace_level = "L2"),
+  mutate(turnover_2013_2024_l3, nace_level = "L3")
+) %>%
+  select(country_code, year, nace_level, nace_category_name, turnover_million_eur)
+
+# join with ETS-NACE mapping and aggregate to combined NACE labels
+mapping_ets_nace <- read_excel("data/raw/mapping ets nace/mapping_ets_activity_nace_all_levels.xlsx") %>%
+  distinct(nace_label_original, nace_label_combined, nace_code_combined)
+
+turnover_by_ets_nace <- turnover_2013_2024 %>%
+  inner_join(mapping_ets_nace, by = c("nace_category_name" = "nace_label_original")) %>%
+  group_by(country_code, year, nace_code_combined, nace_label_combined) %>%
+  summarise(turnover_million_eur = sum(turnover_million_eur, na.rm = TRUE), .groups = "drop")
 
 writexl::write_xlsx(
-  turnover_2013_2024,
-  "data/turnover_by_nace_2.0_level_3_coun_year_2013_24.xlsx"
+  turnover_by_ets_nace,
+  "data/turnover_2013_2024_l2_l3_combined.xlsx"
 )
