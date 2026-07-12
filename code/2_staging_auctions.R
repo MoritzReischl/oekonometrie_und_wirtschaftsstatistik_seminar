@@ -7,7 +7,7 @@ library(ggplot2)
 library(scales)
 
 ####### Step 1: Join all the yearly ETS spot primary auction data into one file
-folder <- "data/raw/ETS EEX spot primary 2012-2025-data"
+folder <- "data/raw/ETS prices/ETS EEX spot primary 2012-2025-data"
 
 # Stores full paths of the files in the folder of type xls or slsx
 files <- list.files(
@@ -15,6 +15,10 @@ files <- list.files(
   pattern = "\\.xls[x]?$",
   full.names = TRUE
 )
+
+if (length(files) == 0L) {
+  stop("No auction workbooks found in: ", folder)
+}
 
 # %>% = take the result on the left and return it as input on the right
 ets_auction_data <- files %>%
@@ -37,7 +41,7 @@ ets_auction_data <- files %>%
 
 ###### Step 2: Calculate mean over years
 ets_auction_yearly_data <- ets_auction_data %>%
-  mutate(auction_year = year(Date)) %>%
+  mutate(auction_year = year(as.Date(.data[["Date"]]))) %>%
   group_by(auction_year) %>%
   summarise(
     `€/tCO2 Mean` = mean(`Auction Price €/tCO2`, na.rm = TRUE),
@@ -53,7 +57,7 @@ ets_auction_yearly_data <- ets_auction_data %>%
 library(writexl)
 writexl::write_xlsx(
   ets_auction_yearly_data,
-  "data/ets_auction_yearly_data_2012_2025.xlsx"
+  "data/ets_auction.xlsx"
 )
 
 ###### Step 4: Plot results

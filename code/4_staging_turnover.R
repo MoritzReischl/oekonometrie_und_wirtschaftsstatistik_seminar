@@ -138,7 +138,7 @@ turnover_2013_2020_l3 = process_eurostat_multisheet_data(
 # union both tables into a single table
 turnover_2013_2024_l3 <- bind_rows(turnover_2021_2024_l3, turnover_2013_2020_l3)
 
-# for replication purpose: store both l3 only and l2+l3
+# for replication purpose: store l3 only
 writexl::write_xlsx(
   turnover_2013_2024_l3,
   "data/turnover_2013_24_l3.xlsx"
@@ -208,16 +208,21 @@ turnover_2013_2024 <- bind_rows(
 ) %>%
   select(country_code, year, nace_level, nace_category_name, turnover_million_eur)
 
-# join with ETS-NACE mapping and aggregate to combined NACE labels
-mapping_ets_nace <- read_excel("data/raw/mapping ets nace/mapping_ets_activity_nace_all_levels.xlsx") %>%
-  distinct(nace_label_original, nace_label_combined, nace_code_combined)
+################
+# 2nd regression
+################
+
+# join with ETS-NACE mapping and aggregate to the NACE aggregation labels
+mapping_ets_nace <- read_excel("data/raw/mapping ets nace/mapping_ets_nace_all_levels.xlsx", sheet="Mapping All Nace Activities") %>%
+  distinct(nace_label_original, nace_label_agg, nace_code_agg)
 
 turnover_by_ets_nace <- turnover_2013_2024 %>%
+  filter(country_code != "EU27_2020") %>%
   inner_join(mapping_ets_nace, by = c("nace_category_name" = "nace_label_original")) %>%
-  group_by(country_code, year, nace_code_combined, nace_label_combined) %>%
-  summarise(turnover_million_eur = sum(turnover_million_eur, na.rm = TRUE), .groups = "drop")
+  group_by(country_code, year, nace_code_agg, nace_label_agg) %>%
+  summarise(turnover_mio_eur = sum(turnover_million_eur, na.rm = TRUE), .groups = "drop")
 
 writexl::write_xlsx(
   turnover_by_ets_nace,
-  "data/turnover_2013_2024_l2_l3_combined.xlsx"
+  "data/turnover_2013_24_l2_l3_agg.xlsx"
 )
