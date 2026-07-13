@@ -3,21 +3,47 @@ library(dplyr)
 library(writexl)
 library(here)
 
-interest_rate_file <- here("data/raw/interest rates/interest rate eurostat yearly irt_st_m_22063167.xlsx")
+interest_rate_file <- here(
+  "data/1_raw/interest rates/interest rates ECB EU countries.xlsx"
+)
 
-# Read Eurostat money market interest rates (annual, Euro area)
-# Sheet layout: skip 7 rows of metadata; row 1 is the label row (dropped via slice(-1))
-# Column layout: ...2 = TIME (year), ...7 = 3-month rate
-interest_rate_3m_yearly <- read_excel(
-  interest_rate_file, sheet = "Sheet 1", skip = 7, col_names = FALSE
+# Read monthly ECB cost-of-borrowing rates for non-financial corporations.
+# The DATA(MIR) sheet contains one series per country and monthly observations
+# measured in percent per annum.
+interest_rates_ecb_monthly <- read_excel(
+  interest_rate_file,
+  sheet = "DATA(MIR)"
 ) |>
-  slice(-1) |>
-  select(time = ...2, rate_3m = ...7) |>
-  filter(!is.na(time), !is.na(rate_3m), rate_3m != ":") |>
-  mutate(
-    year = as.integer(time),
-    interest_rate_3m = as.numeric(rate_3m)
+  transmute(
+    date = as.Date(.data[["DATE"]]),
+    country_code = .data[["REFERENCE AREA"]],
+    interest_rate_corporations = as.numeric(.data[["OBS.VALUE"]])
   ) |>
-  select(year, interest_rate_3m)
+  filter(
+    !is.na(date),
+    !is.na(country_code),
+    !is.na(interest_rate_corporations)
+  )
 
-write_xlsx(interest_rate_3m_yearly, "data/interest_rate_3m.xlsx")
+# Convert the monthly observations to annual country-level means.
+interest_rates_ecb_yearly <- interest_rates_ecb_monthly |>
+  mutate(year = as.integer(format(date, "%Y"))) |>
+  mutate(
+    country_code = if_else(country_code == "GR", "EL", country_code)
+  ) |>
+  filter(country_code != "U2") |>
+  group_by(country_code, year) |>
+  summarise(
+    interest_rate_corporations = mean(
+      interest_rate_corporations,
+      na.rm = TRUE
+    ),
+    months_observed = n(),
+    .groups = "drop"
+  ) |>
+  arrange(country_code, year)
+
+write_xlsx(
+  interest_rates_ecb_yearly,
+  here("data/2_staging/interest_rates.xlsx")
+)

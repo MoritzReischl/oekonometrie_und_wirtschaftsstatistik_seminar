@@ -1,10 +1,77 @@
 library(tidyverse)
 library(readxl)
 library(scales)
+library(here)
+
+create_plot <- function(
+    title, dataset, x_field, x_name, y_field, y_name, group_field, group_name,
+    width, height
+) {
+  x_values <- dataset %>% pull({{ x_field }})
+  
+  plot <- ggplot(
+    
+    dataset,
+    aes(
+      x = {{ x_field }},
+      y = {{ y_field }},
+      color = as.factor({{ group_field }}),
+      group = {{ group_field }}
+    )
+  ) +
+    geom_line(linewidth = 1) +
+    geom_point(size = 2) +
+    scale_x_continuous(
+      breaks = seq(
+        min(x_values, na.rm = TRUE),
+        max(x_values, na.rm = TRUE),
+        by = 2
+      )
+    ) +
+    scale_y_continuous(
+      labels = label_number(scale_cut = cut_short_scale())
+    ) +
+    labs(
+      title = title,
+      x = x_name,
+      y = y_name,
+      color = group_name
+    ) +
+    theme(
+      plot.title = element_text(
+        size = 20,
+        hjust = 0.5
+      ),
+      axis.title.x = element_text(size = 14),
+      axis.text.x = element_text(size = 14),
+      axis.title.y = element_text(size = 14),
+      axis.text.y = element_text(size = 14)
+    )
+  
+  dir.create(here::here("data"), showWarnings = FALSE, recursive = TRUE)
+  
+  file_name <- title %>%
+    iconv(to = "ASCII//TRANSLIT") %>%
+    tolower() %>%
+    gsub("[^a-z0-9]+", "_", .) %>%
+    gsub("^_|_$", "", .) %>%
+    paste0(".png")
+  
+  ggsave(
+    filename = here::here("plots", file_name),
+    plot = plot,
+    width = width,
+    height = height,
+    units = "in",
+    dpi = 300
+  )
+  
+  invisible(plot)
+}
 
 # Script 2 persists this table so this script also works in a fresh R session.
 ets_auction_yearly_data <- read_excel(
-  "data/ets_auction_yearly_data_2012_2025.xlsx"
+  "data/2_staging/ets_auction.xlsx"
 )
 
 # import dataset 
@@ -12,7 +79,7 @@ ets_auction_yearly_data <- read_excel(
 ###### Step 1: Eploration of data
 
 # rename main_activity_code to ets_activity_code for uniform naming throughout the script
-ets_allocated_fully_up_to_2024 <- readxl::read_excel("data/raw/ETS prices/ets_allocated_up_to_2024.xlsx") %>% 
+ets_allocated_fully_up_to_2024 <- readxl::read_excel("data/1_raw/ETS prices/ets_allocated_up_to_2024.xlsx") %>% 
   rename(ets_activity_code = main_activity_code)
 
 unique(ets_allocated_fully_up_to_2024$country_code)
@@ -42,7 +109,7 @@ unique(ets_allocated_fully_up_to_2024$year)
 activity_code_groups = c("20-99", "21-99")
 
 # import the labels of the ets activity_codes
-ets_activity_code_labels <- read_excel("data/raw/mapping ets nace/mapping_ets_nace_level3.xlsx",
+ets_activity_code_labels <- read_excel("data/1_raw/mapping ets nace/mapping_ets_nace_level3.xlsx",
                                        sheet="Mapping") %>%
   transmute(
     ets_activity_code = as.character(ets_activity_code),
@@ -101,7 +168,7 @@ ets_freely_allocated_corr_by_year_coun_acti <- ets_freely_allocated_by_year_coun
 library(writexl)
 writexl::write_xlsx(
   ets_freely_allocated_corr_by_year_coun_acti,
-  "data/ets_freely_allocated_corr.xlsx"
+  "data/2_staging/ets_freely_allocated_corr.xlsx"
 )
 
 # add labels to freely allocated allowances
@@ -118,49 +185,6 @@ unique(ets_freely_allocated_corr_by_year_coun_acti_labeled$ets_activity_name)
 
 
 ########### Plotting
-
-create_plot <- function(title, dataset, x_field, x_name, y_field, y_name, group_field, group_name) {
-  x_values <- dataset %>% pull({{ x_field }})
-  
-  ggplot(
-    
-    dataset,
-    aes(
-      x = {{ x_field }},
-      y = {{ y_field }},
-      color = as.factor({{ group_field }}),
-      group = {{ group_field }}
-    )
-  ) +
-    geom_line(linewidth = 1) +
-    geom_point(size = 2) +
-    scale_x_continuous(
-      breaks = seq(
-        min(x_values, na.rm = TRUE),
-        max(x_values, na.rm = TRUE),
-        by = 2
-      )
-    ) +
-    scale_y_continuous(
-      labels = label_number(scale_cut = cut_short_scale())
-    ) +
-    labs(
-      title = title,
-      x = x_name,
-      y = y_name,
-      color = group_name
-    ) +
-    theme(
-      plot.title = element_text(
-        size = 20,
-        hjust = 0.5
-      ),
-      axis.title.x = element_text(size = 14),
-      axis.text.x = element_text(size = 14),
-      axis.title.y = element_text(size = 14),
-      axis.text.y = element_text(size = 14)
-    )
-}
 
 # reduce number of output graphs
 top_allocated_activities <- ets_freely_allocated_corr_by_year_coun_acti_labeled %>%
@@ -209,7 +233,7 @@ ets_freely_allocated_corr_by_year_acti_labeled_10 <-
     ets_activity_name = factor(ets_activity_name, levels = legend_order)
   )
 
-create_plot("Freely allocated allowances by activity over years", ets_freely_allocated_corr_by_year_acti_labeled_10, year, "Year", total_freely_allocated, "Freely allocated allowances tCO2 equi.", ets_activity_name, "Activity name")
+create_plot("Freely allocated allowances by activity over years", ets_freely_allocated_corr_by_year_acti_labeled_10, year, "Year", total_freely_allocated, "Freely allocated allowances tCO2 equi.", ets_activity_name, "Activity name", width = 12, height = 7)
 
 ########### 
 # dataset 2: emissions by year, country and activity
@@ -260,9 +284,9 @@ ets_emissions_by_year_coun_acti_labeled <- left_join(
 )
 
 # store emissions persistently
-write_xlsx:write_xlsx(
+writexl::write_xlsx(
   ets_emissions_by_year_coun_acti_labeled,
-  "data/ets_emissions.xlsx"
+  "data/2_staging/ets_emissions.xlsx"
 )
 
 ###### Plotting
@@ -307,7 +331,7 @@ ets_emissions_by_year_acti_labeled_10 <- ets_emissions_by_year_acti_labeled_10 %
   )
 
 # plot
-create_plot("Emissions by main activity over years ex. fuel combustion", ets_emissions_by_year_acti_labeled_10, year, "Year", total_emissions_tonne_CO2_equi, "Emissions tCO2", ets_activity_name, "Activity name")
+create_plot("Emissions by main activity over years ex. fuel combustion", ets_emissions_by_year_acti_labeled_10, year, "Year", total_emissions_tonne_CO2_equi, "Emissions tCO2", ets_activity_name, "Activity name", width = 12, height = 7)
 
 ############
 # 3. dataset: net CO2 allowances = emissions - freely allocated allowances per year, activity and country
@@ -356,7 +380,7 @@ ets_net_cost_by_year_coun_acti_labeled <- ets_net_cost_by_year_coun_acti %>%
 # store net_cost persistently
 writexl::write_xlsx(
   ets_net_cost_by_year_coun_acti_labeled,
-  "data/ets_net_cost.xlsx"
+  "data/2_staging/ets_net_cost.xlsx"
 )
 
 # dataset 4 plotting
@@ -393,7 +417,7 @@ ets_net_cost_by_year_acti_10 <- ets_net_cost_by_year_acti %>%
     by = c("ets_activity_code", "ets_activity_name")
   )
 
-create_plot("Net ETS cost by activity over years", ets_net_cost_by_year_acti_10, year, "Year", total_net_ets_cost_eur, "Net ETS cost €", ets_activity_name, "Activity name")
+create_plot("Net ETS cost by activity over years", ets_net_cost_by_year_acti_10, year, "Year", total_net_ets_cost_eur, "Net ETS cost €", ets_activity_name, "Activity name", width = 12, height = 7)
 
 
 ################ 
@@ -402,7 +426,7 @@ create_plot("Net ETS cost by activity over years", ets_net_cost_by_year_acti_10,
 
 # join with ETS-NACE mapping to get aggregated activity labels, then sum net cost per group
 mapping_ets_agg <- readxl::read_excel(
-  "data/raw/mapping ets nace/mapping_ets_nace_all_levels.xlsx",
+  "data/1_raw/mapping ets nace/mapping_ets_nace_all_levels.xlsx",
   sheet = "Mapping All Nace Activities"
 ) %>%
   transmute(
@@ -421,5 +445,5 @@ ets_net_cost_labeled_agg <- ets_net_cost_by_year_coun_acti_labeled %>%
 
 writexl::write_xlsx(
   ets_net_cost_labeled_agg,
-  "data/ets_net_cost_agg.xlsx"
+  "data/2_staging/ets_net_cost_agg.xlsx"
 )

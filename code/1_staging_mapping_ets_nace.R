@@ -3,7 +3,7 @@ library(readxl)
 library(stringr)
 library(openxlsx)
 
-mapping_file <- normalizePath("data/raw/mapping ets nace/mapping_ets_nace_all_levels.xlsx", mustWork = TRUE)
+mapping_file <- normalizePath("data/1_raw/mapping ets nace/mapping_ets_nace_all_levels.xlsx", mustWork = TRUE)
 
 # NACE codes are hierarchy identifiers, not numbers. Padding is necessary because
 # Excel/readxl can otherwise turn, for example, "01" into "1".

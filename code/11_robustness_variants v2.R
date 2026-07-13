@@ -46,7 +46,7 @@ normalize_nace_label <- function(x) {
 # ===========================================================================
 
 mapping <- read_excel(
-  "data/raw/mapping ets nace/mapping_ets_nace_level3.xlsx",
+  "data/1_raw/mapping ets nace/mapping_ets_nace_level3.xlsx",
   sheet = "Mapping"
 ) %>%
   filter(!is.na(ets_activity_code), !is.na(nace_level_3_label)) %>%
@@ -57,7 +57,7 @@ mapping <- read_excel(
   distinct(ets_activity_code, nace_join_key, nace_level_3_label)
 
 turnover <- read_excel(
-  "data/turnover_2013_24_l3.xlsx"
+  "data/2_staging/turnover_2013_24_l3.xlsx"
 ) %>%
   mutate(
     nace_join_key = normalize_nace_label(nace_category_name),
@@ -69,7 +69,7 @@ turnover <- read_excel(
          country_code != "EU27_2020") %>%
   select(country_code, year, nace_category_name, nace_join_key, turnover_eur)
 net_cost <- read_excel(
-  "data/ets_net_cost.xlsx"
+  "data/2_staging/ets_net_cost.xlsx"
 ) %>%
   mutate(ets_activity_code = as.character(ets_activity_code)) %>%
   filter(!is.na(ets_net_cost_eur), year >= 2013, year <= 2024) %>%
@@ -225,7 +225,7 @@ data_D <- turnover %>%
 # ===========================================================================
 
 mapping_all_nace_raw <- read_excel(
-  "data/raw/mapping ets nace/mapping_ets_nace_all_levels.xlsx",
+  "data/1_raw/mapping ets nace/mapping_ets_nace_all_levels.xlsx",
   sheet = "Mapping All Nace Activities"
 )
 
@@ -291,7 +291,7 @@ mapping_relationships <- bind_rows(
 )
 
 turnover_all_nace <- read_excel(
-  "data/turnover_2013_24_l2_l3_agg.xlsx"
+  "data/2_staging/turnover_2013_24_l2_l3_agg.xlsx"
 ) %>%
   filter(turnover_mio_eur > 0, country_code != "EU27_2020") %>%
   transmute(
@@ -302,7 +302,7 @@ turnover_all_nace <- read_excel(
     turnover_eur_mio = turnover_mio_eur
   )
 
-net_cost_all_nace <- read_excel("data/ets_net_cost_agg.xlsx") %>%
+net_cost_all_nace <- read_excel("data/2_staging/ets_net_cost_agg.xlsx") %>%
   transmute(
     country_code,
     year,
@@ -453,6 +453,6 @@ write_xlsx(
     daten_neu_all_nace = data_all_nace,
     mapping_neu = mapping_all_nace
   ),
-  "data/robustness_variants_v2.xlsx"
+  "data/2_staging/robustness_variants_v2.xlsx"
 )
-cat("\nGespeichert: data/robustness_variants_v2_with_relationships.xlsx\n")
+cat("\nGespeichert: data/2_staging/robustness_variants_v2.xlsx\n")

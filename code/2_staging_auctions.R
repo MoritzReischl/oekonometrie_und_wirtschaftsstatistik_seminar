@@ -5,9 +5,10 @@ library(stringr)
 library(lubridate)
 library(ggplot2)
 library(scales)
+library(here)
 
 ####### Step 1: Join all the yearly ETS spot primary auction data into one file
-folder <- "data/raw/ETS prices/ETS EEX spot primary 2012-2025-data"
+folder <- "data/1_raw/ETS prices/ETS EEX spot primary 2012-2025-data"
 
 # Stores full paths of the files in the folder of type xls or slsx
 files <- list.files(
@@ -57,11 +58,11 @@ ets_auction_yearly_data <- ets_auction_data %>%
 library(writexl)
 writexl::write_xlsx(
   ets_auction_yearly_data,
-  "data/ets_auction.xlsx"
+  "data/2_staging/ets_auction.xlsx"
 )
 
 ###### Step 4: Plot results
-ggplot(ets_auction_yearly_data, aes(x = auction_year, y = `€/tCO2 Mean`)) +
+auction_plot = ggplot(ets_auction_yearly_data, aes(x = auction_year, y = `€/tCO2 Mean`)) +
   geom_line(linewidth = 1) +
   geom_point(size = 2) +
   scale_x_continuous(
@@ -85,3 +86,5 @@ ggplot(ets_auction_yearly_data, aes(x = auction_year, y = `€/tCO2 Mean`)) +
     axis.title.y = element_text(size = 14),
     axis.text.y = element_text(size = 14)
   )
+
+ggsave(here::here("plots","ets_auction_price.png"), auction_plot, width=9, height=5)

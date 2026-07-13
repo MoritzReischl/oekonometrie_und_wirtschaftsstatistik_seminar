@@ -113,14 +113,14 @@ process_eurostat_multisheet_data <- function(file_path, nace_category_cell, head
   # store the result persistently as an Excel workbook
   writexl::write_xlsx(
     economic_indicator_nace,
-    paste0("data/", target_name, ".xlsx")
+    paste0("data/2_staging/", target_name, ".xlsx")
   )
   
   economic_indicator_nace
 }
 
 turnover_2021_2024_l3 = process_eurostat_multisheet_data(
-  file_path = "data/raw/turnover/turnover by NACE Rev. 2 level 3 activities 2021-2024.xlsx",
+  file_path = "data/1_raw/turnover/turnover by NACE Rev. 2 level 3 activities 2021-2024.xlsx",
   nace_category_cell = "C7",
   header_row = 10,
   economic_indicator = "turnover_million_eur",
@@ -128,7 +128,7 @@ turnover_2021_2024_l3 = process_eurostat_multisheet_data(
 )
 
 turnover_2013_2020_l3 = process_eurostat_multisheet_data(
-  file_path = "data/raw/turnover/turnover by NACE Rev. 2 level 3 activities 2013-2020.xlsx",
+  file_path = "data/1_raw/turnover/turnover by NACE Rev. 2 level 3 activities 2013-2020.xlsx",
   nace_category_cell = "C6",
   header_row = 10,
   economic_indicator = "turnover_million_eur",
@@ -141,7 +141,7 @@ turnover_2013_2024_l3 <- bind_rows(turnover_2021_2024_l3, turnover_2013_2020_l3)
 # for replication purpose: store l3 only
 writexl::write_xlsx(
   turnover_2013_2024_l3,
-  "data/turnover_2013_24_l3.xlsx"
+  "data/2_staging/turnover_2013_24_l3.xlsx"
 )
 
 # reads a single-sheet Eurostat workbook where the first two columns are country
@@ -177,21 +177,21 @@ process_eurostat_singletable_data <- function(file_path, header_row, economic_in
 
   writexl::write_xlsx(
     economic_indicator_nace,
-    paste0("data/", target_name, ".xlsx")
+    paste0("data/2_staging/", target_name, ".xlsx")
   )
 
   economic_indicator_nace
 }
 
 turnover_2021_2024_l2 <- process_eurostat_singletable_data(
-  file_path = "data/raw/turnover/turnover by NACE Rev. 2 level 2 activities 2021-2024.xlsx",
+  file_path = "data/1_raw/turnover/turnover by NACE Rev. 2 level 2 activities 2021-2024.xlsx",
   header_row = 9,
   economic_indicator = "turnover_million_eur",
   target_name = "raw/turnover_by_nace_2.0_level_2_coun_year_2021_24"
 )
 
 turnover_2013_2020_l2 <- process_eurostat_singletable_data(
-  file_path = "data/raw/turnover/turnover by NACE Rev. 2 level 2 activities 2013-2020.xlsx",
+  file_path = "data/1_raw/turnover/turnover by NACE Rev. 2 level 2 activities 2013-2020.xlsx",
   header_row = 8,
   economic_indicator = "turnover_million_eur",
   target_name = "raw/turnover_by_nace_2.0_level_2_coun_year_2013_20"
@@ -213,7 +213,7 @@ turnover_2013_2024 <- bind_rows(
 ################
 
 # join with ETS-NACE mapping and aggregate to the NACE aggregation labels
-mapping_ets_nace <- read_excel("data/raw/mapping ets nace/mapping_ets_nace_all_levels.xlsx", sheet="Mapping All Nace Activities") %>%
+mapping_ets_nace <- read_excel("data/1_raw/mapping ets nace/mapping_ets_nace_all_levels.xlsx", sheet="Mapping All Nace Activities") %>%
   distinct(nace_label_original, nace_label_agg, nace_code_agg)
 
 turnover_by_ets_nace <- turnover_2013_2024 %>%
@@ -224,5 +224,5 @@ turnover_by_ets_nace <- turnover_2013_2024 %>%
 
 writexl::write_xlsx(
   turnover_by_ets_nace,
-  "data/turnover_2013_24_l2_l3_agg.xlsx"
+  "data/2_staging/turnover_2013_24_l2_l3_agg.xlsx"
 )
